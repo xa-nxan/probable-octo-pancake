@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backtest Trade Visualizer - Long/Short Tool View</title>
+  <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    :root {
+      --bg-dark: #131722;
+      --bg-panel: #1e222d;
+      --border-color: #2a2e39;
+      --text-main: #d1d4dc;
+      --text-muted: #787b86;
+      --green-up: #089981;
+      --green-bg: rgba(8, 153, 129, 0.22);
+      --red-down: #f23645;
+      --red-bg: rgba(242, 54, 69, 0.22);
+      --blue-accent: #2962ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      height: 52px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      gap: 16px;
+    }
+    .left-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    select, button {
+      background: #2a2e39;
+      color: var(--text-main);
+      border: 1px solid #363a45;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover { background: #363a45; }
+    .btn-nav {
+      background: var(--blue-accent);
+      border-color: var(--blue-accent);
+      color: #fff;
+    }
+    .btn-nav:hover { background: #1e53e5; }
+    .stats-pills {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .pill {
+      background: rgba(42, 46, 57, 0.6);
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+    }
+    .pill b { color: #fff; }
+    .pill.win { border-color: var(--green-up); color: var(--green-up); }
+    .main-layout {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+    #chart-container {
+      flex: 1;
+      height: 100%;
+      position: relative;
+    }
+    .sidebar {
+      width: 320px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .sidebar-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 600;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .trade-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .trade-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(42, 46, 57, 0.5);
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+    .trade-item:hover { background: rgba(42, 46, 57, 0.5); }
+    .trade-item.active { background: rgba(41, 98, 255, 0.15); border-left: 3px solid var(--blue-accent); }
+    .trade-item .row1 {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    .trade-item .row2 {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+    .badge {
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .badge.win { background: var(--green-bg); color: var(--green-up); }
+    .badge.loss { background: var(--red-bg); color: var(--red-down); }
+    .badge.short { background: rgba(242, 54, 69, 0.15); color: #f23645; }
+    .badge.long { background: rgba(8, 153, 129, 0.15); color: #089981; }
+
+    /* Trade Tool Overlay Card */
+    #position-card {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(30, 34, 45, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 12px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 240px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    #position-card .title {
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #position-card .stat-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+    #position-card .stat-row span:last-child {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+    #trade-overlay-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="left-controls">
+      <select id="symbol-select">
+        <option value="FX_Vol_40">FX_Vol_40</option>
+        <option value="FX_Vol_20">FX_Vol_20</option>
+        <option value="FlipX_1">FlipX_1</option>
+        <option value="FlipX_2">FlipX_2</option>
+      </select>
+
+      <button id="btn-prev" class="btn-nav">◀ Prev Trade</button>
+      <span id="trade-counter" style="font-size: 13px; color: var(--text-muted); min-width: 80px; text-align: center;">Trade 1 / 100</span>
+      <button id="btn-next" class="btn-nav">Next Trade ▶</button>
+    </div>
+
+    <div class="stats-pills">
+      <div class="pill">Symbol: <b id="stat-symbol">FX_Vol_40</b></div>
+      <div class="pill">Trades: <b id="stat-trades">0</b></div>
+      <div class="pill win">Win Rate: <b id="stat-wr">0%</b></div>
+      <div class="pill" style="color: var(--green-up);">Total PnL (0.01 lot): <b id="stat-pnl">$0.00</b></div>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <div id="chart-container">
+      <canvas id="trade-overlay-canvas"></canvas>
+
+      <!-- Active Trade Detail Card (TradingView Long/Short Position Box) -->
+      <div id="position-card">
+        <div class="title">
+          <span id="card-type">SHORT POSITION</span>
+          <span id="card-badge" class="badge win">WIN</span>
+        </div>
+        <div class="stat-row">
+          <span>Setup Type</span>
+          <span id="card-setup">Resistance Bounce</span>
+        </div>
+        <div class="stat-row">
+          <span>Entry Price</span>
+          <span id="card-entry">179,200.00</span>
+        </div>
+        <div class="stat-row">
+          <span>Take Profit</span>
+          <span id="card-tp" style="color: var(--green-up);">176,800.00</span>
+        </div>
+        <div class="stat-row">
+          <span>Stop Loss</span>
+          <span id="card-sl" style="color: var(--red-down);">179,350.00</span>
+        </div>
+        <div class="stat-row">
+          <span>Risk / Reward</span>
+          <span id="card-rrr">1 : 16.0</span>
+        </div>
+        <div class="stat-row" style="margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border-color);">
+          <span>Net Result</span>
+          <span id="card-pnl" style="color: var(--green-up); font-size: 13px;">+$24.03 USD (+2,402 pts)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span>Backtest Trades Journal</span>
+        <span id="list-count" style="color: var(--text-muted); font-size: 11px;">0 trades</span>
+      </div>
+      <div class="trade-list" id="trade-list">
+        <!-- Trade items injected here -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allTrades = [];
+    let allCandles = {};
+    let filteredTrades = [];
+    let currentTradeIndex = 0;
+
+    let chart = null;
+    let candleSeries = null;
+    let priceLines = [];
+
+    const overlayCanvas = document.getElementById('trade-overlay-canvas');
+    const ctx = overlayCanvas.getContext('2d');
+
+    // Init Lightweight Chart
+    function initChart() {
+      const container = document.getElementById('chart-container');
+      chart = LightweightCharts.createChart(container, {
+        layout: {
+          background: { type: 'solid', color: '#131722' },
+          textColor: '#787b86',
+          fontSize: 11,
+        },
+        grid: {
+          vertLines: { color: 'rgba(42, 46, 57, 0.4)' },
+          horzLines: { color: 'rgba(42, 46, 57, 0.4)' },
+        },
+        crosshair: {
+          mode: 0,
+          vertLine: { color: '#787b86', width: 1, style: 3 },
+          horzLine: { color: '#787b86', width: 1, style: 3 },
+        },
+        rightPriceScale: {
+          borderColor: '#2a2e39',
+          scaleMargins: { top: 0.15, bottom: 0.15 },
+        },
+        timeScale: {
+          borderColor: '#2a2e39',
+          timeVisible: true,
+          secondsVisible: false,
+        },
+        width: container.clientWidth,
+        height: container.clientHeight,
+      });
+
+      candleSeries = chart.addCandlestickSeries({
+        upColor: '#089981',
+        downColor: '#f23645',
+        borderUpColor: '#089981',
+        borderDownColor: '#f23645',
+        wickUpColor: '#089981',
+        wickDownColor: '#f23645',
+      });
+
+      window.addEventListener('resize', () => {
+        chart.applyOptions({
+          width: container.clientWidth,
+          height: container.clientHeight
+        });
+        resizeCanvas();
+        drawActivePositionTool();
+      });
+
+      chart.timeScale().subscribeVisibleTimeRangeChange(() => {
+        drawActivePositionTool();
+      });
+    }
+
+    function resizeCanvas() {
+      const container = document.getElementById('chart-container');
+      overlayCanvas.width = container.clientWidth;
+      overlayCanvas.height = container.clientHeight;
+    }
+
+    // Load Data
+    async function loadData() {
+      try {
+        const [resTrades, resCandles] = await Promise.all([
+          fetch('/backtest_trades.json'),
+          fetch('/backtest_candles.json')
+        ]);
+        allTrades = await resTrades.json();
+        allCandles = await resCandles.json();
+        
+        selectSymbol('FX_Vol_40');
+      } catch (err) {
+        console.error("Failed to load backtest data:", err);
+      }
+    }
+
+    function selectSymbol(sym) {
+      document.getElementById('symbol-select').value = sym;
+      document.getElementById('stat-symbol').textContent = sym;
+      
+      filteredTrades = allTrades.filter(t => t.symbol === sym);
+      
+      const candles = allCandles[sym] || [];
+      if (candles.length > 0) {
+        candleSeries.setData(candles);
+      }
+
+      // Update header stats
+      const wins = filteredTrades.filter(t => t.win).length;
+      const total = filteredTrades.length;
+      const wr = total > 0 ? (wins / total * 100).toFixed(1) : 0;
+      const pnl = filteredTrades.reduce((acc, t) => acc + t.pnl_usd, 0).toFixed(2);
+
+      document.getElementById('stat-trades').textContent = total;
+      document.getElementById('stat-wr').textContent = `${wr}% (${wins}/${total})`;
+      document.getElementById('stat-pnl').textContent = `$${pnl} USD`;
+
+      renderTradeList();
+      currentTradeIndex = 0;
+      if (filteredTrades.length > 0) {
+        showTrade(0);
+      }
+    }
+
+    function renderTradeList() {
+      const listEl = document.getElementById('trade-list');
+      listEl.innerHTML = '';
+      document.getElementById('list-count').textContent = `${filteredTrades.length} trades`;
+
+      filteredTrades.forEach((t, idx) => {
+        const item = document.createElement('div');
+        item.className = `trade-item ${idx === currentTradeIndex ? 'active' : ''}`;
+        item.onclick = () => showTrade(idx);
+
+        const isLong = t.type === 'long-position';
+        item.innerHTML = `
+          <div class="row1">
+            <span class="badge ${isLong ? 'long' : 'short'}">${isLong ? 'LONG' : 'SHORT'}</span>
+            <span style="font-size: 11px; color: ${t.win ? 'var(--green-up)' : 'var(--red-down)'};">
+              ${t.win ? '+' : ''}$${t.pnl_usd.toFixed(2)} (${t.points > 0 ? '+' : ''}${t.points} pts)
+            </span>
+            <span class="badge ${t.win ? 'win' : 'loss'}">${t.win ? 'WIN' : 'LOSS'}</span>
+          </div>
+          <div class="row2">
+            <span>${t.setup}</span>
+            <span>${t.entryTimeStr}</span>
+          </div>
+        `;
+        listEl.appendChild(item);
+      });
+    }
+
+    function showTrade(idx) {
+      if (idx < 0 || idx >= filteredTrades.length) return;
+      currentTradeIndex = idx;
+      const trade = filteredTrades[idx];
+
+      // Update counter
+      document.getElementById('trade-counter').textContent = `Trade ${idx + 1} / ${filteredTrades.length}`;
+
+      // Update Sidebar Active state
+      const items = document.querySelectorAll('.trade-item');
+      items.forEach((it, i) => it.classList.toggle('active', i === idx));
+      if (items[idx]) items[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      // Update Card
+      const isLong = trade.type === 'long-position';
+      document.getElementById('card-type').textContent = `${isLong ? 'LONG' : 'SHORT'} POSITION`;
+      document.getElementById('card-type').style.color = isLong ? 'var(--green-up)' : 'var(--red-down)';
+      
+      const badge = document.getElementById('card-badge');
+      badge.textContent = trade.win ? 'WIN' : 'LOSS';
+      badge.className = `badge ${trade.win ? 'win' : 'loss'}`;
+
+      document.getElementById('card-setup').textContent = trade.setup;
+      document.getElementById('card-entry').textContent = trade.entry.toFixed(2);
+      document.getElementById('card-tp').textContent = trade.tp.toFixed(2);
+      document.getElementById('card-sl').textContent = trade.sl.toFixed(2);
+      document.getElementById('card-rrr').textContent = `1 : ${trade.rrr}`;
+
+      const pnlEl = document.getElementById('card-pnl');
+      pnlEl.textContent = `${trade.win ? '+' : ''}$${trade.pnl_usd.toFixed(2)} USD (${trade.points > 0 ? '+' : ''}${trade.points} pts)`;
+      pnlEl.style.color = trade.win ? 'var(--green-up)' : 'var(--red-down)';
+
+      // Clear previous price lines
+      priceLines.forEach(pl => candleSeries.removePriceLine(pl));
+      priceLines = [];
+
+      // Add Price Lines (TradingView Style)
+      priceLines.push(candleSeries.createPriceLine({
+        price: trade.entry,
+        color: '#787b86',
+        lineWidth: 1,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: 'Entry'
+      }));
+
+      priceLines.push(candleSeries.createPriceLine({
+        price: trade.tp,
+        color: '#089981',
+        lineWidth: 2,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: 'TP Target'
+      }));
+
+      priceLines.push(candleSeries.createPriceLine({
+        price: trade.sl,
+        color: '#f23645',
+        lineWidth: 2,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: 'SL Level'
+      }));
+
+      // Focus chart time scale around the trade
+      const marginSeconds = 3600 * 4; // 4 hours margin
+      chart.timeScale().setVisibleRange({
+        from: trade.entryTime - marginSeconds,
+        to: trade.exitTime + marginSeconds
+      });
+
+      setTimeout(() => {
+        drawActivePositionTool();
+      }, 50);
+    }
+
+    // Draw the TradingView Long/Short Position shaded boxes on the canvas
+    function drawActivePositionTool() {
+      resizeCanvas();
+      ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+      if (!filteredTrades || filteredTrades.length === 0) return;
+      const trade = filteredTrades[currentTradeIndex];
+      if (!trade) return;
+
+      const timeScale = chart.timeScale();
+      const x1 = timeScale.timeToCoordinate(trade.entryTime);
+      const x2 = timeScale.timeToCoordinate(trade.exitTime);
+
+      const yEntry = candleSeries.priceToCoordinate(trade.entry);
+      const yTP = candleSeries.priceToCoordinate(trade.tp);
+      const ySL = candleSeries.priceToCoordinate(trade.sl);
+
+      if (x1 === null || yEntry === null || yTP === null || ySL === null) return;
+
+      const endX = x2 !== null ? Math.max(x2, x1 + 40) : (x1 + 120);
+
+      // Shaded Green Profit Box
+      ctx.fillStyle = 'rgba(8, 153, 129, 0.25)';
+      ctx.fillRect(x1, Math.min(yEntry, yTP), endX - x1, Math.abs(yTP - yEntry));
+
+      // Shaded Red Stop Loss Box
+      ctx.fillStyle = 'rgba(242, 54, 69, 0.25)';
+      ctx.fillRect(x1, Math.min(yEntry, ySL), endX - x1, Math.abs(ySL - yEntry));
+
+      // Borders
+      ctx.strokeStyle = '#089981';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x1, Math.min(yEntry, yTP), endX - x1, Math.abs(yTP - yEntry));
+
+      ctx.strokeStyle = '#f23645';
+      ctx.strokeRect(x1, Math.min(yEntry, ySL), endX - x1, Math.abs(ySL - yEntry));
+
+      // Divider line at Entry
+      ctx.strokeStyle = '#d1d4dc';
+      ctx.beginPath();
+      ctx.moveTo(x1, yEntry);
+      ctx.lineTo(endX, yEntry);
+      ctx.stroke();
+    }
+
+    // Event listeners
+    document.getElementById('symbol-select').addEventListener('change', (e) => {
+      selectSymbol(e.target.value);
+    });
+
+    document.getElementById('btn-prev').addEventListener('click', () => {
+      if (currentTradeIndex > 0) showTrade(currentTradeIndex - 1);
+    });
+
+    document.getElementById('btn-next').addEventListener('click', () => {
+      if (currentTradeIndex < filteredTrades.length - 1) showTrade(currentTradeIndex + 1);
+    });
+
+    // Arrow keys for rapid flipping
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') {
+        if (currentTradeIndex > 0) showTrade(currentTradeIndex - 1);
+      } else if (e.key === 'ArrowRight') {
+        if (currentTradeIndex < filteredTrades.length - 1) showTrade(currentTradeIndex + 1);
+      }
+    });
+
+    initChart();
+    loadData();
+  </script>
+</body>
+</html>

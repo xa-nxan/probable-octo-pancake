@@ -1,0 +1,7 @@
+fastapi==0.140.13
+uvicorn==0.51.0
+pandas==2.3.3
+pyarrow==24.0.0
+MetaTrader5==5.0.5735
+pydantic==2.13.4
+websockets>=12.0
