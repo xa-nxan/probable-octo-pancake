@@ -1,0 +1,26 @@
+{
+    "FX_Vol_20": [
+        {
+            "type": "Box",
+            "points": [
+                {
+                    "time": 1790280000,
+                    "logical": 1723,
+                    "price": 123787.1523850557
+                },
+                {
+                    "time": 1790352000,
+                    "logical": 1728,
+                    "price": 123355.55182193979
+                }
+            ],
+            "options": {
+                "fillEnabled": true,
+                "fillColor": "rgba(255, 255, 255, 0.2)",
+                "lineColor": "#1E80F0",
+                "lineStyle": 0,
+                "width": 4
+            }
+        }
+    ]
+}

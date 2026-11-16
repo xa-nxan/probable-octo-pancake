@@ -1,0 +1,39 @@
+{
+  "symbols": [
+    "FX_Vol_20",
+    "FX_Vol_40",
+    "SFX_Vol_20",
+    "SFX_Vol_40"
+  ],
+  "total_2y_setups": 4953,
+  "feature_cols": [
+    "vol_family",
+    "vol_level",
+    "mean_range_pts",
+    "p95_mean_ratio",
+    "spread_pct_bar",
+    "direction",
+    "risk_atr",
+    "obs1_rr",
+    "impulse_atr",
+    "touches",
+    "L1_clean_bo",
+    "L2_absorption",
+    "L3_pullback_bos",
+    "is_micro_trap",
+    "L4_momentum_candle",
+    "L5_escaped_rejection",
+    "L6_escape_range",
+    "L7_hs_shift",
+    "L8_fib_golden",
+    "L9_htf_room",
+    "num_positive_lessons",
+    "core_triad",
+    "breakout_momentum_pair",
+    "scale_ratio",
+    "momentum_ratio",
+    "fib_depth",
+    "velocity_ratio",
+    "efficiency_ratio"
+  ]
+}

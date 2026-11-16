@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.parquet
+*.csv
+*.db
+*.sqlite3
+
+# Node / Frontend
+node_modules/
+**/node_modules/
+.npm
+dist/
+**/dist/
+.vite/
+**/.vite/
+**/.vite-temp/
+
+# Large data directories
+data/
+**/data/*.parquet
+
+# Environments & OS
+.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+
+# Scratch / experiments
+scratch/
+scratch_*.py
+patch_*.py
+archive/
+temp_*.json
+temp_*.py
+
+
+# Local credentials & browser sessions
+weltrade_profile/
+**/weltrade_profile/
+.weltrade*
+**/.weltrade*
+
+# Large ML models, binaries & caches (>50MB / GitHub limits)
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.pkl
+webapp/backend/models/
+**/.cache/
+
+# Logs
+*.log
+
+
+
